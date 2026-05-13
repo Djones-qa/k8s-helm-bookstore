@@ -7,7 +7,6 @@ Exposes:
   /metrics       - Prometheus metrics (via prometheus-fastapi-instrumentator)
   /books         - simple in-memory CRUD used to demo the deployment
 """
-from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator

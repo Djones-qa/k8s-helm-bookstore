@@ -1,6 +1,5 @@
 """Integration tests for the /books endpoints."""
 
-
 VALID_BOOK = {"title": "Clean Code", "author": "Robert C. Martin", "price": 35.99}
 
 
