@@ -1,4 +1,5 @@
 """Simple in-memory book store - keeps the app self-contained for k8s demos."""
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
