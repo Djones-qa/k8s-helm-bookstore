@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main, develop]
+  pull_request:
+    branches: [master, main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install lint deps
+        run: pip install ruff mypy
+      - name: Ruff check + format
+        run: |
+          ruff check .
+          ruff format --check .
+      - name: Mypy
+        run: mypy app/ --ignore-missing-imports
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Copy env file
+        run: cp .env.example .env
+      - name: Create reports dir
+        run: mkdir -p reports
+      - name: Run tests
+        run: pytest tests/ -v --tb=short --junitxml=reports/results.xml
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: reports/
+          retention-days: 14
+
+  helm-lint:
+    name: Helm Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+      - name: Lint default values
+        run: helm lint helm/bookstore/
+      - name: Lint dev values
+        run: helm lint helm/bookstore/ -f helm/bookstore/values-dev.yaml
+      - name: Lint prod values
+        run: helm lint helm/bookstore/ -f helm/bookstore/values-prod.yaml
+      - name: Helm template dry-run
+        run: helm template bookstore helm/bookstore/ -f helm/bookstore/values-prod.yaml
+
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t bookstore:ci .
+      - name: Smoke test probes
+        run: |
+          docker run -d --name bookstore -p 8000:8000 bookstore:ci
+          sleep 8
+          curl --fail http://localhost:8000/health/live
+          curl --fail http://localhost:8000/health/ready
+          curl --fail http://localhost:8000/metrics
+          docker stop bookstore
+
+  publish:
+    name: Publish Image
+    runs-on: ubuntu-latest
+    needs: [lint, test, helm-lint, docker]
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  all-checks:
+    name: All Checks Passed
+    needs: [lint, test, helm-lint, docker]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check all jobs
+        shell: bash
+        run: |
+          if [[ "${{ needs.lint.result }}"      != "success" || \
+                "${{ needs.test.result }}"      != "success" || \
+                "${{ needs.helm-lint.result }}" != "success" || \
+                "${{ needs.docker.result }}"    != "success" ]]; then
+            echo "One or more jobs failed"
+            exit 1
+          fi
+          echo "All checks passed"

@@ -1,0 +1,18 @@
+Bookstore API has been deployed!
+
+  Release:     {{ .Release.Name }}
+  Namespace:   {{ .Release.Namespace }}
+  App version: {{ .Chart.AppVersion }}
+
+Get the application URL:
+{{- if .Values.ingress.enabled }}
+  http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.host }}
+{{- else }}
+  kubectl port-forward svc/{{ include "bookstore.fullname" . }} 8000:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+  Then open: http://localhost:8000/docs
+{{- end }}
+
+Health probes:
+  Liveness:  /health/live
+  Readiness: /health/ready
+  Metrics:   /metrics

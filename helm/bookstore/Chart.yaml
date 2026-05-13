@@ -1,0 +1,12 @@
+apiVersion: v2
+name: bookstore
+description: A Helm chart for deploying the Bookstore API on Kubernetes
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - bookstore
+  - fastapi
+  - api
+maintainers:
+  - name: Djones-qa

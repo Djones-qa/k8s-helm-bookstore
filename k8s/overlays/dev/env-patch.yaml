@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bookstore
+  namespace: bookstore-dev
+spec:
+  template:
+    spec:
+      containers:
+        - name: bookstore
+          env:
+            - name: ENVIRONMENT
+              value: development
+            - name: DEBUG
+              value: "true"

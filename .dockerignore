@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+.git
+.github
+helm/
+k8s/
+tests/
+*.md
+.pytest_cache/
+htmlcov/
