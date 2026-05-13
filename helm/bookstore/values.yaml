@@ -1,4 +1,4 @@
-# Default values — override per environment
+# Default values - override per environment
 
 replicaCount: 2
 
